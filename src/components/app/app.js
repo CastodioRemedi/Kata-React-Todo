@@ -1,130 +1,171 @@
-import { Component } from 'react'
+import { useCallback, useMemo, useEffect, useState } from 'react'
 
 import Footer from '../footer'
 import NewTaskForm from '../newTaskForm'
+import TaskFilter from '../taskFilter'
 import TaskList from '../taskList'
 
-export default class App extends Component {
-  constructor() {
-    super()
+const initialState = {
+  byId: {
+    1: {
+      id: 1,
+      isCompleted: true,
+      isEditing: false,
+      description: 'Completed task',
+      inputValue: 'Completed task',
+      created: Date.now(),
+      timer: 0,
+    },
+    2: {
+      id: 2,
+      isCompleted: false,
+      isEditing: true,
+      description: 'One more task',
+      inputValue: 'One more task',
+      created: Date.now(),
+      timer: 120000,
+    },
+    3: {
+      id: 3,
+      isCompleted: false,
+      isEditing: false,
+      description: 'Active task',
+      inputValue: 'Active task',
+      created: Date.now(),
+      timer: 1000,
+    },
+  },
+  allIds: [1, 2, 3],
+}
 
-    this.taskId = 1
+export default function App() {
+  const [todos, setTodos] = useState(initialState)
+  const [taskFilter, setTaskFilter] = useState('all')
+  const [newTaskId, setNewTaskId] = useState(10)
 
-    this.createTask = (description, taskState = '', id = this.taskId) => {
-      this.taskId += 1
-      return {
-        id,
-        taskState,
+  const itemsLeft = useMemo(() => todos.allIds.filter((id) => !todos.byId[id].isCompleted).length, [todos])
 
+  const createTask = (description, min = 0, sec = 0) => {
+    const time = (min * 60 + sec) * 1000
+    return {
+      [newTaskId]: {
+        id: newTaskId,
+        isCompleted: false,
+        isEditing: false,
         description,
+        inputValue: description,
         created: Date.now(),
+        timer: time,
+      },
+    }
+  }
+
+  const addTask = useCallback(
+    (description, min, sec) => {
+      setNewTaskId((id) => id + 1)
+      setTodos((s) => {
+        const { byId, allIds } = s
+        return { byId: { ...byId, ...createTask(description, min, sec) }, allIds: [...allIds, newTaskId] }
+      })
+    },
+    [newTaskId]
+  )
+
+  const toggleFlagById = (id, flag) => {
+    setTodos((s) => {
+      const { byId, allIds } = s
+      return { byId: { ...byId, [id]: { ...byId[id], [flag]: !byId[id][flag] } }, allIds: [...allIds] }
+    })
+  }
+
+  const stopEditing = () => {
+    setTodos((s) => {
+      const { byId, allIds } = s
+      return {
+        byId: allIds.reduce((acc, id) => {
+          acc[id] = { ...byId[id], isEditing: false, inputValue: byId[id].description }
+          return acc
+        }, {}),
+        allIds: [...allIds],
       }
-    }
-
-    this.state = {
-      todos: [
-        this.createTask('Completed task', 'completed'),
-        this.createTask('Editing task', 'editing'),
-        this.createTask('Active task', ''),
-      ],
-      taskFilter: 'all',
-    }
-
-    this.addTask = (description) => {
-      this.setState(({ todos }) => ({
-        todos: [...todos, this.createTask(description)],
-      }))
-    }
-
-    this.onComplite = (id) => {
-      this.setState(({ todos }) => ({
-        todos: todos.map((todo) => {
-          if (id === todo.id) {
-            const taskState = todo.taskState === '' ? 'completed' : ''
-            return { ...todo, taskState }
-          }
-          return todo
-        }),
-      }))
-    }
-
-    this.onDelite = (id) => {
-      this.setState(({ todos }) => {
-        const index = todos.findIndex((todo) => todo.id === id)
-        return {
-          todos: [...todos.slice(0, index), ...todos.slice(index + 1)],
-        }
-      })
-    }
-
-    this.onEdit = (id) => {
-      this.setState(({ todos }) => ({
-        todos: todos.map((todo) => {
-          if (todo.taskState === 'editing') return { ...todo, taskState: '' }
-          if (todo.id === id && todo.taskState !== 'completed') return { ...todo, taskState: 'editing' }
-          return todo
-        }),
-      }))
-    }
-
-    this.editInputHandler = (id, value) => {
-      this.setState(({ todos }) => ({
-        todos: todos.map((todo) => {
-          if (todo.id === id) return { ...todo, description: value }
-          return todo
-        }),
-      }))
-    }
-
-    this.editSubmit = (id) => {
-      this.setState(({ todos }) => ({
-        todos: todos.map((todo) => {
-          if (todo.id === id) return { ...todo, taskState: '' }
-          return todo
-        }),
-      }))
-    }
-
-    this.onFilterSelect = (selectedFilter) => {
-      this.setState({
-        taskFilter: selectedFilter,
-      })
-    }
-
-    this.clearCompleted = () => {
-      this.setState(({ todos }) => ({
-        todos: todos.filter((todo) => todo.taskState !== 'completed'),
-      }))
-    }
+    })
   }
 
-  render() {
-    const { todos, taskFilter } = this.state
+  useEffect(() => {
+    document.addEventListener('click', (e) => {
+      if (e.target.tagName === 'HTML') stopEditing()
+    })
+  }, [])
 
-    return (
-      <section className="todoapp">
-        <header className="header">
-          <h1>todos</h1>
-          <NewTaskForm addTask={this.addTask} />
-        </header>
-        <section className="main">
-          <TaskList
-            todos={todos}
-            onComplite={this.onComplite}
-            onDelite={this.onDelite}
-            onEdit={this.onEdit}
-            inputHandler={this.editInputHandler}
-            editSubmit={this.editSubmit}
-            filter={taskFilter}
-          />
-          <Footer
-            filter={taskFilter}
-            onFilterSelect={this.onFilterSelect}
-            clearCompleted={this.clearCompleted}
-            itemsLeft={todos.filter((todo) => todo.taskState !== 'completed').length}
-          />
-        </section>
+  const onDelite = (deliteId) => {
+    setTodos((s) => {
+      const { byId, allIds } = s
+      const newIds = allIds.filter((id) => id !== deliteId)
+      return {
+        byId: newIds.reduce((acc, id) => {
+          acc[id] = byId[id]
+          return acc
+        }, {}),
+        allIds: [...newIds],
+      }
+    })
+  }
+
+  const editInputHandler = (id, value) => {
+    setTodos((s) => {
+      const { byId, allIds } = s
+      return { byId: { ...byId, [id]: { ...byId[id], inputValue: value } }, allIds: [...allIds] }
+    })
+  }
+
+  const editSubmit = (id, value) => {
+    setTodos((s) => {
+      const { byId, allIds } = s
+      return { byId: { ...byId, [id]: { ...byId[id], description: value } }, allIds: [...allIds] }
+    })
+  }
+
+  const clearCompleted = () => {
+    setTodos((s) => {
+      const { byId, allIds } = s
+      const notComplitedIds = allIds.filter((id) => !byId[id].isCompleted)
+      return {
+        byId: notComplitedIds.reduce((acc, id) => {
+          acc[id] = byId[id]
+          return acc
+        }, {}),
+        allIds: [...notComplitedIds],
+      }
+    })
+  }
+
+  const timerUpdate = useCallback((id) => {
+    setTodos((s) => {
+      const { byId, allIds } = s
+      return { byId: { ...byId, [id]: { ...byId[id], timer: byId[id].timer + 1000 } }, allIds: [...allIds] }
+    })
+  }, [])
+
+  return (
+    <section className="todoapp">
+      <header className="header">
+        <h1>todos</h1>
+        <NewTaskForm addTask={addTask} />
+      </header>
+      <section className="main">
+        <TaskList
+          todos={todos}
+          toggleFlagById={toggleFlagById}
+          onDelite={onDelite}
+          inputHandler={editInputHandler}
+          editSubmit={editSubmit}
+          filter={taskFilter}
+          timerUpdate={timerUpdate}
+        />
+        <Footer clearCompleted={clearCompleted} itemsLeft={itemsLeft} filter={taskFilter}>
+          <TaskFilter filter={taskFilter} onFilterSelect={setTaskFilter} />
+        </Footer>
       </section>
-    )
-  }
+    </section>
+  )
 }

@@ -1,12 +1,11 @@
 import PropTypes from 'prop-types'
+import React from 'react'
 
-import TaskFilter from '../taskFilter'
-
-export default function Footer({ filter, onFilterSelect, clearCompleted, itemsLeft }) {
+function Footer({ clearCompleted, itemsLeft, children }) {
   return (
     <footer className="footer">
       <span className="todo-count">{itemsLeft} items left</span>
-      <TaskFilter filter={filter} onFilterSelect={onFilterSelect} />
+      {children}
       <button type="button" className="clear-completed" onClick={() => clearCompleted()}>
         Clear completed
       </button>
@@ -23,3 +22,8 @@ Footer.propTypes = {
   clearCompleted: PropTypes.func,
   itemsLeft: PropTypes.number,
 }
+
+const areEqual = (prevProps, nextProps) =>
+  prevProps.itemsLeft === nextProps.itemsLeft && prevProps.filter === nextProps.filter
+
+export default React.memo(Footer, areEqual)
